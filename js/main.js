@@ -1,6 +1,7 @@
 // main.js
 
 import { generatePhotoSet } from './data.js';
+import { renderThumbnails } from './thumbnails.js';
 
-const photos = generatePhotoSet();
-console.log(photos);
+const allPhotos = generatePhotoSet();
+renderThumbnails(allPhotos);
