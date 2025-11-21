@@ -1,3 +1,6 @@
+import { showFullView } from './big-picture.js';
+
+
 const template = document
   .querySelector('#picture')
   .content
@@ -17,6 +20,11 @@ function createThumbnail(photo) {
 
   element.querySelector('.picture__likes').textContent = photo.likes;
   element.querySelector('.picture__comments').textContent = photo.comments.length;
+
+  element.addEventListener('click', (evt) => {
+    evt.preventDefault();
+    showFullView(photo);
+  });
 
   return element;
 }
