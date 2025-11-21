@@ -11,6 +11,10 @@ const commentCountBlock = bigPicture.querySelector('.social__comment-count');
 const commentsLoader = bigPicture.querySelector('.comments-loader');
 const closeBtn = bigPicture.querySelector('.big-picture__cancel');
 
+const MAX_COMMENTS_PER_BATCH = 5;
+
+let totalComments = [];
+let loadedCommentCount = 0;
 let onEscKeyDown = null;
 
 /**
@@ -44,27 +48,27 @@ export function showFullView(photo) {
   // Заполняем основные поля
   bigPictureImg.src = photo.url;
   bigPictureImg.alt = photo.description || '';
-  likesCountEl.textContent = String(photo.likes ?? 0);
+  likesCountEl.textContent = String(photo.likes !== undefined ? photo.likes : 0);
   commentsCountEl.textContent = String((photo.comments && photo.comments.length) || 0);
   descriptionEl.textContent = photo.description || '';
 
   // Очищаем и добавляем комментарии
   commentsListEl.innerHTML = '';
-  if (Array.isArray(photo.comments) && photo.comments.length > 0) {
-    const frag = document.createDocumentFragment();
-    photo.comments.forEach((c) => {
-      frag.appendChild(createCommentElement(c));
-    });
-    commentsListEl.appendChild(frag);
-  }
+  totalComments = photo.comments;
+  loadedCommentCount = 0;
 
-  // Спрятать индикатор счётчика и кнопку загрузить ещё
-  commentCountBlock.classList.add('hidden');
-  commentsLoader.classList.add('hidden');
+  // показать блоки
+  commentCountBlock.classList.remove('hidden');
+  commentsLoader.classList.remove('hidden');
+
+  // первая порция
+  displayComments();
 
   // Показать окно
   bigPicture.classList.remove('hidden');
   document.body.classList.add('modal-open');
+
+  commentsLoader.addEventListener('click', displayComments);
 
   // Обработчики закрытия
   const onCloseClick = () => hideFullView();
@@ -102,8 +106,33 @@ export function hideFullView() {
     onEscKeyDown = null;
   }
 
+  commentsLoader.removeEventListener('click', displayComments);
+
   // Очищаем содержимое (чтобы при следующем открытии не было мигания старых данных)
   commentsListEl.innerHTML = '';
   commentCountBlock.classList.add('hidden');
   commentsLoader.classList.add('hidden');
 }
+
+
+function displayComments() {
+  const nextBatch = totalComments.slice(
+    loadedCommentCount,
+    loadedCommentCount + MAX_COMMENTS_PER_BATCH
+  );
+
+  nextBatch.forEach((comment) => {
+    const li = createCommentElement(comment);
+    commentsListEl.appendChild(li);
+  });
+
+  loadedCommentCount += nextBatch.length;
+
+  commentsCountEl.textContent = totalComments.length;
+  commentCountBlock.textContent = `${loadedCommentCount} из ${totalComments.length} комментариев`;
+
+  if (loadedCommentCount >= totalComments.length) {
+    commentsLoader.classList.add('hidden');
+  }
+}
+
