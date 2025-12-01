@@ -1,4 +1,5 @@
 // Работа с формой загрузки/редактирования изображения и валидация Pristine
+import { sendForm } from './api.js';
 
 (function () {
   const form = document.querySelector('.img-upload__form');
@@ -17,6 +18,10 @@
   const submitBtn = form.querySelector('.img-upload__submit');
   const scaleSmallerBtn = form.querySelector('.scale__control--smaller');
   const scaleBiggerBtn = form.querySelector('.scale__control--bigger');
+
+  const messagesTemplate = document.querySelector('#messages')?.content?.querySelector('.img-upload__message');
+  const successTemplate = document.querySelector('#success')?.content?.querySelector('.success');
+  const errorTemplate = document.querySelector('#error')?.content?.querySelector('.error');
 
   const DEFAULT_SCALE = 100;
   const DEFAULT_EFFECT = 'none';
@@ -276,6 +281,64 @@
     return false;
   }
 
+  function showLoadingMessage() {
+    if (!messagesTemplate) return null;
+    const node = messagesTemplate.cloneNode(true);
+    node.classList.add('img-upload__message--active');
+    form.appendChild(node);
+    return node;
+  }
+
+  function removeLoadingMessage(node) {
+    if (node && node.parentNode) {
+      node.parentNode.removeChild(node);
+    }
+  }
+
+  function showModalMessage(cloneNode) {
+    if (!cloneNode) return null;
+    body.appendChild(cloneNode);
+    return cloneNode;
+  }
+
+  function closeModalMessage(modalNode) {
+    if (!modalNode) return;
+    modalNode.remove();
+  }
+
+  function setupModalCloseHandlers(modalNode, buttonSelector) {
+    if (!modalNode) return () => {};
+    const onDocumentKey = (evt) => {
+      if (evt.key === 'Escape' || evt.key === 'Esc') {
+        closeModalMessage(modalNode);
+        document.removeEventListener('keydown', onDocumentKey);
+        modalNode.removeEventListener('click', onOutsideClick);
+      }
+    };
+    const onOutsideClick = (evt) => {
+      if (!evt.target.closest('.' + modalNode.classList[0])) {
+        closeModalMessage(modalNode);
+        document.removeEventListener('keydown', onDocumentKey);
+        modalNode.removeEventListener('click', onOutsideClick);
+      }
+    };
+    const btn = modalNode.querySelector(buttonSelector);
+    const onBtn = () => {
+      closeModalMessage(modalNode);
+      document.removeEventListener('keydown', onDocumentKey);
+      modalNode.removeEventListener('click', onOutsideClick);
+      if (btn) btn.removeEventListener('click', onBtn);
+    };
+    if (btn) btn.addEventListener('click', onBtn);
+    document.addEventListener('keydown', onDocumentKey);
+    modalNode.addEventListener('click', onOutsideClick);
+    return () => {
+      document.removeEventListener('keydown', onDocumentKey);
+      modalNode.removeEventListener('click', onOutsideClick);
+      if (btn) btn.removeEventListener('click', onBtn);
+    };
+  }
+
   if (pristine) {
     pristine.addValidator(hashtagsInput, validateHashtags, hashtagsErrorMessage);
     pristine.addValidator(descriptionInput, validateDescription, 'Длина комментария не может превышать 140 символов.');
@@ -332,10 +395,11 @@
   });
 
   form.addEventListener('submit', (evt) => {
+    evt.preventDefault();
+
     if (pristine) {
       const valid = pristine.validate();
       if (!valid) {
-        evt.preventDefault();
         const firstError = form.querySelector('.form-error-text');
         if (firstError) {
           firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -345,6 +409,30 @@
     }
 
     submitBtn.disabled = true;
+    const loadingNode = showLoadingMessage();
+
+    const fd = new FormData(form);
+
+    sendForm(fd)
+      .then(() => {
+        removeLoadingMessage(loadingNode);
+        submitBtn.disabled = false;
+
+        const successNode = successTemplate ? successTemplate.cloneNode(true) : null;
+        const modal = showModalMessage(successNode);
+        setupModalCloseHandlers(modal, '.success__button');
+
+        closeForm();
+      })
+      .catch((err) => {
+        console.error(err);
+        removeLoadingMessage(loadingNode);
+        submitBtn.disabled = false;
+
+        const errorNode = errorTemplate ? errorTemplate.cloneNode(true) : null;
+        const modal = showModalMessage(errorNode);
+        setupModalCloseHandlers(modal, '.error__button');
+      });
   });
 
   // Обработчик переключения эффектов — скрываем/показываем контейнер и сбрасываем уровень эффекта
@@ -391,3 +479,4 @@
   setEffect(DEFAULT_EFFECT);
 
 })();
+
