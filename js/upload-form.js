@@ -3,7 +3,7 @@ import { sendForm } from './api.js';
 
 (function () {
   const form = document.querySelector('.img-upload__form');
-  const fileInput = form.querySelector('.img-upload__input');
+  let fileInput = form.querySelector('.img-upload__input');
   const overlay = form.querySelector('.img-upload__overlay');
   const body = document.body;
   const cancelBtn = form.querySelector('.img-upload__cancel');
@@ -211,21 +211,54 @@ import { sendForm } from './api.js';
     });
   }
 
+  function onFileChange() {
+    if (!fileInput.files?.length) return;
+
+    const file = fileInput.files[0];
+    const url = URL.createObjectURL(file);
+
+    previewImage.src = url;
+
+    const effectPreviews = form.querySelectorAll('.effects__preview');
+    effectPreviews.forEach((el) => {
+      el.style.backgroundImage = `url("${url}")`;
+    });
+
+    openForm();
+  }
+
+  fileInput.addEventListener('change', onFileChange);
+
   // Закрываем и сбрасываем
   function closeForm() {
     form.reset();
+
     fileInput.value = '';
+
     setScale(DEFAULT_SCALE);
     setEffect(DEFAULT_EFFECT);
     removePreviewFilter();
+
+    previewImage.src = 'img/upload-default-image.jpg';
+    previewImage.style.transform = '';
+    previewImage.style.filter = '';
+    previewImage.style.webkitFilter = '';
+
+    const effectPreviews = form.querySelectorAll('.effects__preview');
+    effectPreviews.forEach((el) => {
+      el.style.backgroundImage = '';
+      el.style.backgroundSize = '';
+      el.style.backgroundPosition = '';
+      el.style.backgroundRepeat = '';
+    });
+
     overlay.classList.add('hidden');
     body.classList.remove('modal-open');
-    if (pristine) {
-      pristine.reset();
-    }
-    // Установим слайдер в исходное состояние
+
+    if (pristine) pristine.reset();
+
     if (effectLevelSliderNode && effectLevelSliderNode.noUiSlider) {
-      const eff = EFFECTS[DEFAULT_EFFECT] || { range: { min: 0, max: 100 }, step: 1 };
+      const eff = EFFECTS[DEFAULT_EFFECT];
       effectLevelSliderNode.noUiSlider.set(eff.range.max);
     }
   }
@@ -344,20 +377,6 @@ import { sendForm } from './api.js';
     pristine.addValidator(descriptionInput, validateDescription, 'Длина комментария не может превышать 140 символов.');
   }
 
-  // Обработчики событий
-
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files && fileInput.files.length > 0) {
-      // Подставляем выбранное изображение в preview (если нужно)
-      const file = fileInput.files[0];
-      const url = URL.createObjectURL(file);
-      if (previewImage) {
-        previewImage.src = url;
-      }
-      openForm();
-    }
-  });
-
   cancelBtn.addEventListener('click', (evt) => {
     evt.preventDefault();
     closeForm();
@@ -377,21 +396,6 @@ import { sendForm } from './api.js';
         evt.stopPropagation();
       }
     });
-  });
-
-  form.addEventListener('reset', () => {
-    setTimeout(() => {
-      fileInput.value = '';
-      setScale(DEFAULT_SCALE);
-      setEffect(DEFAULT_EFFECT);
-      removePreviewFilter();
-      overlay.classList.add('hidden');
-      body.classList.remove('modal-open');
-
-      if (pristine) {
-        pristine.reset();
-      }
-    }, 0);
   });
 
   form.addEventListener('submit', (evt) => {
@@ -418,6 +422,33 @@ import { sendForm } from './api.js';
         removeLoadingMessage(loadingNode);
         submitBtn.disabled = false;
 
+        // Создаём локальный объект нового фото
+        const file = fileInput.files[0];
+        const localUrl = URL.createObjectURL(file);
+
+        const scale = parseInt(scaleValue.value, 10) / 100;
+
+        // Определяем выбранный эффект
+        const selectedEffect = [...effectsRadios].find(r => r.checked)?.value || 'none';
+        const effectIntensity = effectLevelValue?.value || null;
+
+        const newPhoto = {
+          id: Date.now(),
+          url: localUrl,
+          likes: 0,
+          comments: [],
+          description: descriptionInput.value,
+          effect: selectedEffect,
+          intensity: effectIntensity,
+          scale: scale
+        };
+
+        // Генерируем глобальное событие
+        document.dispatchEvent(
+          new CustomEvent("photo:uploaded", { detail: newPhoto })
+        );
+
+        // Показываем модалку успеха
         const successNode = successTemplate ? successTemplate.cloneNode(true) : null;
         const modal = showModalMessage(successNode);
         setupModalCloseHandlers(modal, '.success__button');

@@ -41,12 +41,55 @@ function createCommentElement(comment) {
   return li;
 }
 
+function computeFilterStyle(effect, intensity) {
+  if (!effect || effect === 'none') return '';
+  const v = (intensity === null || intensity === undefined || intensity === '') ? null : Number(intensity);
+
+  switch (effect) {
+    case 'chrome':
+      return `grayscale(${v !== null ? (v / 100).toFixed(2) : 1})`;
+    case 'sepia':
+      return `sepia(${v !== null ? (v / 100).toFixed(2) : 1})`;
+    case 'marvin':
+      return `invert(${v !== null ? v : 100}%)`;
+    case 'phobos':
+      return `blur(${v !== null ? v : 3}px)`;
+    case 'heat':
+      if (v === null) return `brightness(1)`;
+      return `brightness(${(1 + (v / 100) * 2).toFixed(2)})`;
+    default:
+      return '';
+  }
+}
+
 /**
  * Открывает полноэкранное окно и заполняет его данными photo
  */
 export function showFullView(photo) {
   // Заполняем основные поля
   bigPictureImg.src = photo.url;
+
+  if (photo.effect) {
+    const filter = computeFilterStyle(photo.effect, photo.intensity);
+    if (filter) {
+      bigPictureImg.style.filter = filter;
+      bigPictureImg.style.webkitFilter = filter;
+    } else {
+      bigPictureImg.style.filter = '';
+      bigPictureImg.style.webkitFilter = '';
+    }
+  } else {
+    bigPictureImg.style.filter = '';
+    bigPictureImg.style.webkitFilter = '';
+  }
+
+  if (photo.scale !== undefined && photo.scale !== null) {
+    const scaleValue = typeof photo.scale === 'number' ? photo.scale : (Number(photo.scale) || 1);
+    bigPictureImg.style.transform = `scale(${scaleValue})`;
+  } else {
+    bigPictureImg.style.transform = '';
+  }
+
   bigPictureImg.alt = photo.description || '';
   likesCountEl.textContent = String(photo.likes !== undefined ? photo.likes : 0);
   commentsCountEl.textContent = String((photo.comments && photo.comments.length) || 0);
@@ -91,6 +134,12 @@ export function showFullView(photo) {
  * Закрывает окно и убирает обработчики
  */
 export function hideFullView() {
+
+  // Сбрасываем стили большого изображения
+  bigPictureImg.style.filter = '';
+  bigPictureImg.style.webkitFilter = '';
+  bigPictureImg.style.transform = '';
+
   // Если окно уже скрыто — ничего не делаем
   if (bigPicture.classList.contains('hidden')) {
     return;
