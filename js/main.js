@@ -88,7 +88,7 @@ loadPhotos()
       filtersBlock.classList.remove('img-filters--inactive');
     }
 
-    const originalPhotos = Array.isArray(photos) ? photos : [];
+    let originalPhotos = Array.isArray(photos) ? photos : [];
 
     applyFilter(originalPhotos, 'default');
 
@@ -112,6 +112,25 @@ loadPhotos()
         debouncedApply('discussed', filterDiscussedBtn);
       });
     }
+
+    document.addEventListener("photo:uploaded", (evt) => {
+      const newPhoto = evt.detail;
+      if (!newPhoto) return;
+
+      // Добавляем в общий массив
+      originalPhotos.unshift(newPhoto);
+
+      // Определяем текущий выбранный фильтр
+      const activeBtn = filtersBlock.querySelector('.img-filters__button--active');
+      const filterType =
+        activeBtn?.id === 'filter-random'
+          ? 'random'
+          : activeBtn?.id === 'filter-discussed'
+            ? 'discussed'
+            : 'default';
+
+      applyFilter(originalPhotos, filterType);
+    });
   })
   .catch(() => {
     showDataLoadError('Не удалось загрузить фотографии. Попробуйте перезагрузить страницу.');

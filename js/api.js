@@ -23,7 +23,6 @@ export async function loadPhotos() {
     });
 }
 
-
 export async function sendForm(formData) {
   return timeoutFetch(BASE, {
     method: 'POST',
