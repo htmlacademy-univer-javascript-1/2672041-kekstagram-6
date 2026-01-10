@@ -8,7 +8,10 @@ const template = document
 const picturesContainer = document.querySelector('.pictures');
 
 function computeFilterStyle(effect, intensity) {
-  if (!effect || effect === 'none') return '';
+  if (!effect || effect === 'none') {
+    return '';
+  }
+
   const v = (intensity === null || intensity === undefined || intensity === '') ? null : Number(intensity);
 
   switch (effect) {
@@ -21,7 +24,9 @@ function computeFilterStyle(effect, intensity) {
     case 'phobos': // blur in px (v can be 0..3)
       return `blur(${v !== null ? v : 3}px)`;
     case 'heat': // brightness(1..3) mapped from intensity 1..100 (same mapping as uploader)
-      if (v === null) return `brightness(1)`;
+      if (v === null) {
+        return 'brightness(1)';
+      }
       return `brightness(${(1 + (v / 100) * 2).toFixed(2)})`;
     default:
       return '';

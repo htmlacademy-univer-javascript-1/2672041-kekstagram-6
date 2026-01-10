@@ -61,7 +61,11 @@ function applyFilter(photos, filterType) {
       toRender = pickRandomUnique(photos, 10);
       break;
     case 'discussed':
-      toRender = Array.from(photos).sort((a, b) => (b.comments?.length || 0) - (a.comments?.length || 0));
+      toRender = Array.from(photos).sort((a, b) => {
+        const aLen = a.comments ? a.comments.length : 0;
+        const bLen = b.comments ? b.comments.length : 0;
+        return bLen - aLen;
+      });
       break;
     case 'default':
     default:
@@ -73,7 +77,9 @@ function applyFilter(photos, filterType) {
 
 // Устанавливаем визуально активную кнопку фильтра
 function setActiveButton(activeBtn) {
-  if (!filtersBlock) return;
+  if (!filtersBlock) {
+    return;
+  }
   const buttons = filtersBlock.querySelectorAll('.img-filters__button');
   buttons.forEach((b) => b.classList.remove('img-filters__button--active'));
   if (activeBtn) {
@@ -88,7 +94,7 @@ loadPhotos()
       filtersBlock.classList.remove('img-filters--inactive');
     }
 
-    let originalPhotos = Array.isArray(photos) ? photos : [];
+    const originalPhotos = Array.isArray(photos) ? photos : [];
 
     applyFilter(originalPhotos, 'default');
 
@@ -113,21 +119,26 @@ loadPhotos()
       });
     }
 
-    document.addEventListener("photo:uploaded", (evt) => {
+    document.addEventListener('photo:uploaded', (evt) => {
       const newPhoto = evt.detail;
-      if (!newPhoto) return;
+      if (!newPhoto) {
+        return;
+      }
 
       // Добавляем в общий массив
       originalPhotos.unshift(newPhoto);
 
       // Определяем текущий выбранный фильтр
       const activeBtn = filtersBlock.querySelector('.img-filters__button--active');
-      const filterType =
-        activeBtn?.id === 'filter-random'
-          ? 'random'
-          : activeBtn?.id === 'filter-discussed'
-            ? 'discussed'
-            : 'default';
+      const activeId = activeBtn ? activeBtn.id : '';
+
+      let filterType = 'default';
+
+      if (activeId === 'filter-random') {
+        filterType = 'random';
+      } else if (activeId === 'filter-discussed') {
+        filterType = 'discussed';
+      }
 
       applyFilter(originalPhotos, filterType);
     });
