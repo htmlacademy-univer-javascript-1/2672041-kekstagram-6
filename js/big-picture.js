@@ -42,7 +42,10 @@ function createCommentElement(comment) {
 }
 
 function computeFilterStyle(effect, intensity) {
-  if (!effect || effect === 'none') return '';
+  if (!effect || effect === 'none') {
+    return '';
+  }
+
   const v = (intensity === null || intensity === undefined || intensity === '') ? null : Number(intensity);
 
   switch (effect) {
@@ -55,7 +58,9 @@ function computeFilterStyle(effect, intensity) {
     case 'phobos':
       return `blur(${v !== null ? v : 3}px)`;
     case 'heat':
-      if (v === null) return `brightness(1)`;
+      if (v === null) {
+        return 'brightness(1)';
+      }
       return `brightness(${(1 + (v / 100) * 2).toFixed(2)})`;
     default:
       return '';

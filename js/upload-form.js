@@ -3,7 +3,7 @@ import { sendForm } from './api.js';
 
 (function () {
   const form = document.querySelector('.img-upload__form');
-  let fileInput = form.querySelector('.img-upload__input');
+  const fileInput = form.querySelector('.img-upload__input');
   const overlay = form.querySelector('.img-upload__overlay');
   const body = document.body;
   const cancelBtn = form.querySelector('.img-upload__cancel');
@@ -19,9 +19,14 @@ import { sendForm } from './api.js';
   const scaleSmallerBtn = form.querySelector('.scale__control--smaller');
   const scaleBiggerBtn = form.querySelector('.scale__control--bigger');
 
-  const messagesTemplate = document.querySelector('#messages')?.content?.querySelector('.img-upload__message');
-  const successTemplate = document.querySelector('#success')?.content?.querySelector('.success');
-  const errorTemplate = document.querySelector('#error')?.content?.querySelector('.error');
+  const messagesEl = document.querySelector('#messages');
+  const messagesTemplate = messagesEl ? messagesEl.content.querySelector('.img-upload__message') : null;
+
+  const successEl = document.querySelector('#success');
+  const successTemplate = successEl ? successEl.content.querySelector('.success') : null;
+
+  const errorEl = document.querySelector('#error');
+  const errorTemplate = errorEl ? errorEl.content.querySelector('.error') : null;
 
   const DEFAULT_SCALE = 100;
   const DEFAULT_EFFECT = 'none';
@@ -77,7 +82,11 @@ import { sendForm } from './api.js';
   function setScale(percent) {
     if (scaleValue) {
       const clamped = Math.max(SCALE_MIN, Math.min(SCALE_MAX, percent));
-      scaleValue.value = `${clamped}%`;
+      const text = `${clamped}%`;
+      scaleValue.value = text;
+
+      scaleValue.setAttribute('value', text);
+
       previewImage.style.transform = `scale(${clamped / 100})`;
     }
   }
@@ -203,6 +212,9 @@ import { sendForm } from './api.js';
 
   // Валидация Pristine
   let pristine = null;
+  let activeModal = null;
+  let activeModalCleanup = null;
+
   if (typeof Pristine !== 'undefined') {
     pristine = new Pristine(form, {
       classTo: 'img-upload__field-wrapper',
@@ -211,8 +223,21 @@ import { sendForm } from './api.js';
     });
   }
 
+  function closeActiveModal() {
+    if (activeModalCleanup) {
+      activeModalCleanup();
+      activeModalCleanup = null;
+    }
+    if (activeModal) {
+      activeModal.remove();
+      activeModal = null;
+    }
+  }
+
   function onFileChange() {
-    if (!fileInput.files?.length) return;
+    if (!fileInput.files || fileInput.files.length === 0) {
+      return;
+    }
 
     const file = fileInput.files[0];
     const url = URL.createObjectURL(file);
@@ -255,7 +280,9 @@ import { sendForm } from './api.js';
     overlay.classList.add('hidden');
     body.classList.remove('modal-open');
 
-    if (pristine) pristine.reset();
+    if (pristine) {
+      pristine.reset();
+    }
 
     if (effectLevelSliderNode && effectLevelSliderNode.noUiSlider) {
       const eff = EFFECTS[DEFAULT_EFFECT];
@@ -265,7 +292,9 @@ import { sendForm } from './api.js';
 
   // Парсер строки тегов массив чистых тегов
   function parseTags(input) {
-    if (!input) {return [];}
+    if (!input) {
+      return [];
+    }
     return input
       .trim()
       .split(/\s+/)
@@ -281,7 +310,9 @@ import { sendForm } from './api.js';
 
   function validateHashtags(value) {
     const tags = parseTags(value);
-    if (tags.length === 0) {return true;}
+    if (tags.length === 0) {
+      return true;
+    }
 
     if (tags.length > 5) {
       validateHashtags.lastError = 'Нельзя указать больше пяти хэш-тегов.';
@@ -315,7 +346,9 @@ import { sendForm } from './api.js';
   }
 
   function showLoadingMessage() {
-    if (!messagesTemplate) return null;
+    if (!messagesTemplate) {
+      return null;
+    }
     const node = messagesTemplate.cloneNode(true);
     node.classList.add('img-upload__message--active');
     form.appendChild(node);
@@ -329,48 +362,75 @@ import { sendForm } from './api.js';
   }
 
   function showModalMessage(cloneNode) {
-    if (!cloneNode) return null;
+    if (!cloneNode) {
+      return null;
+    }
+    cloneNode.style.zIndex = '1000';
     body.appendChild(cloneNode);
     return cloneNode;
   }
 
   function closeModalMessage(modalNode) {
-    if (!modalNode) return;
+    if (!modalNode) {
+      return;
+    }
     modalNode.remove();
   }
 
-  function setupModalCloseHandlers(modalNode, buttonSelector) {
-    if (!modalNode) return () => {};
+  function setupModalCloseHandlers(modalNode, buttonSelector, onClose) {
+    if (!modalNode) {
+      return () => {};
+    }
+
+    const inner =
+      modalNode.querySelector('.error__inner') ||
+      modalNode.querySelector('.success__inner');
+
+    const btn = modalNode.querySelector(buttonSelector);
+
+    const close = () => {
+      closeModalMessage(modalNode);
+      // eslint-disable-next-line
+      cleanup();
+      if (typeof onClose === 'function') {
+        onClose();
+      }
+    };
+
     const onDocumentKey = (evt) => {
       if (evt.key === 'Escape' || evt.key === 'Esc') {
-        closeModalMessage(modalNode);
-        document.removeEventListener('keydown', onDocumentKey);
-        modalNode.removeEventListener('click', onOutsideClick);
+        close();
       }
     };
+
     const onOutsideClick = (evt) => {
-      if (!evt.target.closest('.' + modalNode.classList[0])) {
-        closeModalMessage(modalNode);
-        document.removeEventListener('keydown', onDocumentKey);
-        modalNode.removeEventListener('click', onOutsideClick);
+      if (inner && !inner.contains(evt.target)) {
+        close();
       }
     };
-    const btn = modalNode.querySelector(buttonSelector);
+
     const onBtn = () => {
-      closeModalMessage(modalNode);
+      close();
+    };
+
+    const cleanup = () => {
       document.removeEventListener('keydown', onDocumentKey);
       modalNode.removeEventListener('click', onOutsideClick);
-      if (btn) btn.removeEventListener('click', onBtn);
+
+      if (btn) {
+        btn.removeEventListener('click', onBtn);
+      }
     };
-    if (btn) btn.addEventListener('click', onBtn);
+
+    if (btn) {
+      btn.addEventListener('click', onBtn);
+    }
     document.addEventListener('keydown', onDocumentKey);
     modalNode.addEventListener('click', onOutsideClick);
-    return () => {
-      document.removeEventListener('keydown', onDocumentKey);
-      modalNode.removeEventListener('click', onOutsideClick);
-      if (btn) btn.removeEventListener('click', onBtn);
-    };
+
+    return cleanup;
   }
+
 
   if (pristine) {
     pristine.addValidator(hashtagsInput, validateHashtags, hashtagsErrorMessage);
@@ -429,8 +489,10 @@ import { sendForm } from './api.js';
         const scale = parseInt(scaleValue.value, 10) / 100;
 
         // Определяем выбранный эффект
-        const selectedEffect = [...effectsRadios].find(r => r.checked)?.value || 'none';
-        const effectIntensity = effectLevelValue?.value || null;
+        const selectedRadio = Array.from(effectsRadios).find((r) => r.checked);
+        const selectedEffect = selectedRadio ? selectedRadio.value : 'none';
+
+        const effectIntensity = effectLevelValue ? effectLevelValue.value : null;
 
         const newPhoto = {
           id: Date.now(),
@@ -445,7 +507,7 @@ import { sendForm } from './api.js';
 
         // Генерируем глобальное событие
         document.dispatchEvent(
-          new CustomEvent("photo:uploaded", { detail: newPhoto })
+          new CustomEvent('photo:uploaded', { detail: newPhoto })
         );
 
         // Показываем модалку успеха
@@ -455,14 +517,19 @@ import { sendForm } from './api.js';
 
         closeForm();
       })
-      .catch((err) => {
-        console.error(err);
+      .catch(() => {
+        // console.error(err);
         removeLoadingMessage(loadingNode);
         submitBtn.disabled = false;
 
+        closeActiveModal();
+
         const errorNode = errorTemplate ? errorTemplate.cloneNode(true) : null;
-        const modal = showModalMessage(errorNode);
-        setupModalCloseHandlers(modal, '.error__button');
+        activeModal = showModalMessage(errorNode);
+        activeModalCleanup = setupModalCloseHandlers(activeModal, '.error__button', () => {
+          closeForm();
+          closeActiveModal();
+        });
       });
   });
 
